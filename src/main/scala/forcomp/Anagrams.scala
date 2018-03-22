@@ -1,5 +1,9 @@
 package forcomp
 
+import java.util.Collections
+import java.util.stream.{Collectors, IntStream}
+import java.util.stream.IntStream.range
+
 
 object Anagrams {
 
@@ -34,10 +38,10 @@ object Anagrams {
    *
    *  Note: you must use `groupBy` to implement this method!
    */
-  def wordOccurrences(w: Word): Occurrences = ???
+  def wordOccurrences(w: Word): Occurrences = w.toCharArray.groupBy(e => e.toLower).groupBy(f => (f._1, f._2.length)).keys.toList.sorted
 
   /** Converts a sentence into its character occurrence list. */
-  def sentenceOccurrences(s: Sentence): Occurrences = ???
+  def sentenceOccurrences(s: Sentence): Occurrences = wordOccurrences(s.reduceLeft(_ + _ ))
 
   /** The `dictionaryByOccurrences` is a `Map` from different occurrences to a sequence of all
    *  the words that have that occurrence count.
@@ -54,10 +58,10 @@ object Anagrams {
    *    List(('a', 1), ('e', 1), ('t', 1)) -> Seq("ate", "eat", "tea")
    *
    */
-  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = ???
+  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = loadDictionary.groupBy(w => wordOccurrences(w))
 
   /** Returns all the anagrams of a given word. */
-  def wordAnagrams(word: Word): List[Word] = ???
+  def wordAnagrams(word: Word): List[Word] = dictionaryByOccurrences(wordOccurrences(word))
 
   /** Returns the list of all subsets of the occurrence list.
    *  This includes the occurrence itself, i.e. `List(('k', 1), ('o', 1))`
@@ -81,7 +85,53 @@ object Anagrams {
    *  Note that the order of the occurrence list subsets does not matter -- the subsets
    *  in the example above could have been displayed in some other order.
    */
-  def combinations(occurrences: Occurrences): List[Occurrences] = ???
+  def combinations(occurrences: Occurrences): List[Occurrences] = {
+
+    def innerCombination(i: (Char, Int)) : List[List[(Char, Int)]] = {
+      if(i._2 == 1)
+        List(List(i))
+      else
+        List(i) :: innerCombination(i._1, i._2 - 1)
+    }
+
+    if(occurrences.nonEmpty) {
+      innerCombination(occurrences.head) ::: combinations(occurrences.tail) ::: lotMoreCombination(innerCombination(occurrences.head), combinations(occurrences.tail))
+    }
+    else
+      List(Nil)
+
+  }
+
+  def lotMoreCombination(input: List[List[(Char, Int)]], combinations: List[Occurrences]): List[List[(Char, Int)]] = {
+
+    def littleMoreCombination(tuples: List[(Char, Int)], combinations: List[Occurrences]) = {
+      var lCombinations: List[List[(Char, Int)]] = List()
+      if(tuples.nonEmpty) {
+        tuples.foreach(t => lCombinations = lCombinations ::: moreCombination(t, combinations))
+        lCombinations
+      } else
+        List()
+    }
+
+    def moreCombination(tuple: (Char, Int), combinations: List[Occurrences]) = {
+      var mCombinations: List[List[(Char, Int)]] = List()
+      if(combinations.nonEmpty) {
+        combinations.foreach(c => mCombinations = mCombinations ::: List(c ::: List(tuple)))
+        mCombinations
+      } else
+        List()
+    }
+
+    var allCombinations: List[List[(Char, Int)]] = List()
+    if(input.nonEmpty)
+      input.foreach(r => allCombinations = allCombinations ::: littleMoreCombination(r, combinations))
+
+    var z : List[List[(Char, Int)]] = List()
+    allCombinations.foreach(e => z = z ::: List(e.sortWith(_._1 < _._1)))
+    z = z.sortWith(_.length < _.length)
+    z ::: List()
+
+  }
 
   /** Subtracts occurrence list `y` from occurrence list `x`.
    *
@@ -93,7 +143,7 @@ object Anagrams {
    *  Note: the resulting value is an occurrence - meaning it is sorted
    *  and has no zero-entries.
    */
-  def subtract(x: Occurrences, y: Occurrences): Occurrences = ???
+  def subtract(x: Occurrences, y: Occurrences): Occurrences = x.filter(e => !y.contains(e))
 
   /** Returns a list of all anagram sentences of the given sentence.
    *
@@ -135,5 +185,12 @@ object Anagrams {
    *
    *  Note: There is only one anagram of an empty sentence.
    */
-  def sentenceAnagrams(sentence: Sentence): List[Sentence] = ???
+  def sentenceAnagrams(sentence: Sentence): List[Sentence] = {
+    var i = 0
+    if (sentence.nonEmpty) {
+      combinations(wordOccurrences(sentence.reduceLeft(_ + _))).groupBy(c => if (dictionaryByOccurrences.contains(c)) dictionaryByOccurrences(c) else List()).keys.toList
+    }
+    else
+      List[Sentence](List())
+  }
 }
